@@ -29,13 +29,14 @@ var shutdownMode = ExitMode.SHUTDOWN
 fun main()
 {
     //Logger.getLogger(OkHttpClient::class.java.name).level = Level.FINE
-    val token = File("token").readText()
+    val token = File("token").readText().trim()
     bot = JDABuilder.create(token, GatewayIntent.getIntents(GatewayIntent.ALL_INTENTS))
         .addEventListeners(UtilityListener(), MessageListener())
         .build()
         .awaitReady()
     
     load()
+    bot.guilds.filter {it.id !in joinedGuilds}.forEach {joinedGuilds[it.id] = GuildData(it)}
     Runtime.getRuntime().addShutdownHook(Thread(::save))
     
     while(true)
@@ -124,7 +125,7 @@ class MessageListener: ListenerAdapter()
                 }
                 suggestionChannels.forEach {textChannel ->
                     textChannel.sendMessage("**A suggestion/complaint has been submitted with id ${suggestion.id}.**\n$content").queue {
-                        event.channel.sendMessage("Thank you for making a suggestion or complaint. It has been anonymously forwarded to the moderation team").queue()
+                        event.channel.sendMessage("Thank you for making a suggestion or complaint. It has been anonymously forwarded to the moderation team in ${textChannel.guild.name}").queue()
                         if(suggestion.attachments.isNotEmpty())
                             event.channel.sendMessage("1 or more attachments were found in your message. Attachments are not sent as part of a suggestion. Use links instead.").queue()
                     }

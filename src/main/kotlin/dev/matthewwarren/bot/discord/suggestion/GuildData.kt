@@ -8,11 +8,11 @@ class GuildData private constructor(val guildId: String, val adminRoleIds: Mutab
         fun fromJSON(jsonObject: JSONObject): GuildData {
             val guildId = jsonObject.getString("guildId")
             @Suppress("UNCHECKED_CAST")
-            val adminRoleIds = jsonObject.getJSONArray("adminRoleIds") as List<String>
+            val adminRoleIds = jsonObject.getJSONArray("adminRoleIds").toMutableList() as MutableList<String>
             val suggestionChannelId = jsonObject.getString("suggestionChannelid")
             val botPrefix = jsonObject.getString("botPrefix")
             
-            return GuildData(guildId, adminRoleIds.toMutableList(), suggestionChannelId, botPrefix)
+            return GuildData(guildId, adminRoleIds, suggestionChannelId, botPrefix)
         }
     }
     

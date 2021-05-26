@@ -7,6 +7,7 @@ fun toToken(botPrefix: String, textUnit: String): Token
 {
     return when
     {
+        textUnit.startsWith(botDefaultPrefix) -> Token(TokenType.COMMAND, textUnit.substring(botDefaultPrefix.length), textUnit)
         textUnit.startsWith(botPrefix) -> Token(TokenType.COMMAND, textUnit.substring(botPrefix.length), textUnit)
         textUnit.matches(Regex("<@[0-9]+>")) -> Token(TokenType.USER, textUnit.substring(2, textUnit.length - 1), textUnit)
         textUnit.matches(Regex("<@![0-9]+>")) -> Token(TokenType.USER, textUnit.substring(3, textUnit.length - 1), textUnit)
