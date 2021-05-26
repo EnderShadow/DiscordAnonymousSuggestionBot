@@ -1,5 +1,6 @@
 package dev.matthewwarren.bot.discord.suggestion
 
+import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.entities.*
 
 fun runCommand(command: String, tokenizer: Tokenizer, sourceMessage: Message)
@@ -98,10 +99,104 @@ sealed class Command(val prefix: String, val requiresAdmin: Boolean = false, val
             val replyContent = tokenizer.remainingTextAsToken.rawValue
             suggestions.firstOrNull {it.suggestionMessageId == suggestionId}?.let {
                 val channel = bot.getPrivateChannelById(it.userChannelId) ?: bot.openPrivateChannelById(it.userChannelId).complete()
-                channel?.sendMessage("The mods have replied to your suggestion: $replyContent")?.queue {
+                channel?.sendMessage("The mods from ${sourceMessage.guild.name} have replied to your suggestion: $replyContent")?.queue {
                     sourceMessage.channel.sendMessage("Your reply was successfully sent").queue()
                 }
             } ?: sourceMessage.channel.sendMessage("Unable to reply to the suggestion because it's either been purged from cache, the user does not exist, or I cannot send a DM to them").queue()
+        }
+    }
+    
+    class Admin: Command("admin", true) {
+        override fun helpMessage(botPrefix: String) = """`${botPrefix}admin` __Used for managing the roles that can manage the bot__
+            |
+            |**Usage:** ${botPrefix}admin list
+            |              ${botPrefix}admin add [role] ...
+            |              ${botPrefix}admin remove [role] ...
+            |
+            |The server owner can always administrate the bot
+            |
+            |**Examples:**
+            |`${botPrefix}admin list` lists the roles that can currently manage the bot
+            |`${botPrefix}admin add @Admin @Moderator` adds the @Admin and @Moderator role to the list of roles that can administrate the bot
+        """.trimMargin()
+        
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
+            if(isServerAdmin(sourceMessage.member!!) && tokenizer.hasNext()) {
+                val guildData = joinedGuilds[sourceMessage.guild.id]!!
+                when(tokenizer.next().tokenValue) {
+                    "list" -> {
+                        val messageBuilder = if(guildData.adminRoleIds.isNotEmpty())
+                            MessageBuilder(guildData.adminRoleIds.map(sourceMessage.guild::getRoleById).joinToString(" ") {it!!.asMention})
+                        else
+                            MessageBuilder("No roles are registered as a bot admin")
+                        sourceMessage.channel.sendMessage(messageBuilder.build()).queue()
+                    }
+                    "add" -> {
+                        if(tokenizer.hasNext()) {
+                            guildData.adminRoleIds.addAll(tokenizer.asSequence().filter {it.tokenType == TokenType.ROLE}.mapNotNull {it.tokenValue})
+                            sourceMessage.channel.sendMessage("The admin roles have been updated").queue()
+                            save()
+                        }
+                    }
+                    "remove" -> {
+                        if(guildData.adminRoleIds.removeAll(tokenizer.asSequence().filter {it.tokenType == TokenType.ROLE}.mapNotNull {it.tokenValue})) {
+                            sourceMessage.channel.sendMessage("The admin roles have been updated").queue()
+                            save()
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    class SuggestionChannel: Command("suggestionChannel", true) {
+        override fun helpMessage(botPrefix: String) = """`${botPrefix}suggestionChannel` __Gets or sets the suggestion channel for the server__
+            |
+            |**Usage:** ${botPrefix}suggestionChannel
+            |              ${botPrefix}suggestionChannel [channel]
+            |
+            |**Examples:**
+            |`${botPrefix}suggestionChannel` gets the suggestion channel for the server
+            |`${botPrefix}suggestionChannel #channel` sets the suggestion channel for the server to #channel
+        """.trimMargin()
+        
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
+            if(isServerAdmin(sourceMessage.member!!)) {
+                if(tokenizer.hasNext()) {
+                    joinedGuilds[sourceMessage.guild.id]!!.suggestionChannelId = tokenizer.remainingTextAsToken.tokenValue
+                    sourceMessage.channel.sendMessage("The suggestion channel has been updated").queue()
+                    save()
+                }
+                else {
+                    sourceMessage.channel.sendMessage("The current suggestion channel is ${sourceMessage.guild.getTextChannelById(joinedGuilds[sourceMessage.guild.id]!!.suggestionChannelId)!!.asMention}").queue()
+                }
+            }
+        }
+    }
+    
+    class BotPrefix: Command("botPrefix", true) {
+        override fun helpMessage(botPrefix: String) = """`${botPrefix}botPrefix` __Gets or sets the bot prefix for the server__
+            |
+            |**Usage:** ${botPrefix}botPrefix
+            |              ${botPrefix}botPrefix [new bot prefix]
+            |
+            |**Examples:**
+            |`${botPrefix}botPrefix` gets the initial role for the server
+            |`${botPrefix}botPrefix @member` sets the initial role for the server to the @member role
+            |`${botPrefix}initialRole none` sets the initial role for the server to no role
+        """.trimMargin()
+        
+        override fun invoke(tokenizer: Tokenizer, sourceMessage: Message) {
+            if(isServerAdmin(sourceMessage.member!!)) {
+                if(tokenizer.hasNext()) {
+                    joinedGuilds[sourceMessage.guild.id]!!.botPrefix = tokenizer.remainingTextAsToken.tokenValue
+                    sourceMessage.channel.sendMessage("The bot prefix has been updated").queue()
+                    save()
+                }
+                else {
+                    sourceMessage.channel.sendMessage("The current bot prefix is ${joinedGuilds[sourceMessage.guild.id]!!.botPrefix}").queue()
+                }
+            }
         }
     }
     
